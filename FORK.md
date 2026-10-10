@@ -1,7 +1,14 @@
 # FORK.md —— 本仓库（增强版 fork）说明
 
-> 上游主体：[MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget)
-> 本仓库在上游基础上追加了**三块**功能。上游是设计、素材与绝大多数实现的主体；本仓库只做了追加。
+> **先明确两个仓库分别是谁**（下文统一用这两个称呼，避免歧义）：
+>
+> | 称呼 | 指的是 | 地址 |
+> | --- | --- | --- |
+> | **本仓库 / 本 fork** | 你现在看的这个仓库（在原作者项目基础上加了功能的那份） | <https://github.com/H-Canopy/DeepSeek-Balance-Whale-Widget> |
+> | **上游 / 原项目** | **这个挂件的原作者仓库**，GitHub 页面上 `forked from …` 那行指向的就是它 | <https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget> |
+>
+> 本仓库只做了**追加**：设计、素材（鲸鱼形象、音效、图标）与绝大多数实现都属于上游与原作者，许可见 `LICENSE` 与 `PROVENANCE.md`。
+> 文中提到的「PR」指我们提给上游的合并请求：[#236](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget/pull/236)。
 
 ---
 
@@ -28,9 +35,21 @@
 
 ## 3. 安装
 
-- **Web（`dsh web`）**：`dsh plugin --profile web add github:<你的用户名>/<本仓库>`
-- **官方桌面客户端（Electron）**：桌面端 profile 由客户端自己管理，`dsh plugin` 会拒绝；请**在桌面端的会话里直接说"把 dsh-whale-widget 装上"**，由它自己装（或用 `link:` 指向本仓库目录）。
+- **Web（`dsh web`）**：
+  ```
+  dsh plugin --profile web add github:H-Canopy/DeepSeek-Balance-Whale-Widget
+  ```
+- **官方桌面客户端（Electron）**：桌面端 profile 由客户端自己管理，`dsh plugin` 会拒绝碰它；请**在桌面端的会话里直接说「把 dsh-whale-widget 装上」**，由它自己装（或用 `link:` 指向本仓库目录）。
 - 老版本/手动安装请参考上游 README 的「安装」一节。
+
+> ⚠️ **与上游版本不能并存**：插件包名始终是 `dsh-whale-widget`（bundle 身份，不能改），所以装本 fork 等于**替代**上游版本。要从上游版换回本 fork（或反之），先 `dsh plugin --profile web remove dsh-whale-widget` 再装，不要两个都留着。
+
+### 版本号规则
+
+本 fork 的版本号 = 所基于的上游版本 + `-whalemusic.<递增号>`，例如 `0.3.18-whalemusic.1`：
+- 前半段让你一眼看出**它是基于上游哪个版本**（这里是 `0.3.18`）；
+- 后缀是**本 fork 自己的增量**（第一版是 `.1`，之后每次我们自己的改动递增，不跟随上游）；
+- 这样在插件管理器里不会和上游出现两个一模一样的版本号而分不清谁是谁，也不会在排序上假装比上游的下一版更新。
 
 ## 4. 已知限制（都是实测结论，不是猜测）
 
@@ -67,10 +86,12 @@
 
 1. **跑泄露扫描**（本仓库作者自用的工具，随测试资产一起提供）：
    ```
-   node leak-scan.mjs <本仓库目录>          # 只看 git 跟踪文件
-   node leak-scan.mjs <目录> --all          # 连未跟踪文件一起看
+   node leak-scan.mjs <本仓库目录>                    # 只看 git 跟踪文件
+   node leak-scan.mjs <目录> --all                    # 连未跟踪文件一起看
+   node leak-scan.mjs <本仓库目录> --ok H-Canopy       # 声明"这是我故意公开的账号"
    ```
    它检查：本机身份串（用户名/机器名/家目录/`git config` 里的姓名邮箱与 QQ 号）、凭据样式、通用绝对路径、IP/邮箱、以及**二进制资产里的元数据**（PNG `tEXt/iTXt`、JPEG EXIF、MP3 ID3、WAV LIST、GIF 注释块）。必须 **CRITICAL 0 / WARN 0** 才算过。
+   `--ok <字符串>` 用来声明"这个身份是我故意公开的"（例如自己的 GitHub 账号 —— 它本来就要出现在安装命令与仓库元数据里）：命中的项降级为 INFO 但仍会列出来，**不会削弱其它检查**（不写 `--ok` 时照样拦；QQ 邮箱/用户名/机器名永远拦）。
 2. **提交身份**：`git config user.email` 若填的是真实邮箱（尤其 QQ 邮箱），它会**永久写进公开提交历史**并被爬虫抓取。建议：
    ```
    git config user.name  "<你的公开昵称>"

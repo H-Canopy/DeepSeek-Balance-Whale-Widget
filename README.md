@@ -1,8 +1,15 @@
 # DSH 小鲸鱼记账挂件（DeepSeek Balance Whale Widget）
 
 <!-- FORK-NOTE-START （提交 PR 给上游前请整段删除；它只服务于本 fork 自己的仓库） -->
-> 🐋 **本仓库是增强版 fork**：在上游 [MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget) 的基础上，额外增加了**本地音乐播放器 / 在线电台（Radio Browser + SomaFM）/ 网易云联动（遥控 + 点歌 + 歌单）**。
-> 三块功能的说明、平台支持矩阵、已知限制、以及"这些改动是否已回馈上游"的同步策略，见 **[FORK.md](FORK.md)**。上游仍是这个项目的主体，素材与设计都归上游与原作者。
+> 🐋 **这是增强版 fork（`0.3.18-whalemusic.1`）**：在原项目（上游）[MeteorNOX/DeepSeek-Balance-Whale-Widget](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget) 基础上，额外加了 **本地音乐播放器 / 在线电台（Radio Browser + SomaFM）/ 网易云联动（遥控 + 点歌 + 歌单）**。
+>
+> **安装**
+> · Web：`dsh plugin --profile web add github:H-Canopy/DeepSeek-Balance-Whale-Widget`
+> · 官方桌面端（Electron）：桌面端 profile 由客户端自己管理，请在会话里直接说「把 dsh-whale-widget 装上」。
+>
+> ⚠️ 插件包名仍是 `dsh-whale-widget`，所以**装本 fork 等于替代上游版本，两者不能并存**（要换回来先 `dsh plugin --profile web remove dsh-whale-widget`）。
+>
+> 功能说明、平台支持矩阵、已知限制、上游同步策略见 **[FORK.md](FORK.md)**；这三块功能的补丁已提交上游（[PR #236](https://github.com/MeteorNOX/DeepSeek-Balance-Whale-Widget/pull/236)），上游合并后本仓库即转为跟随同步。上游仍是这个项目的主体，素材与设计都归上游与原作者。
 <!-- FORK-NOTE-END -->
 
 ![DSH 小鲸鱼记账挂件](assets/DSH2.png)
