@@ -40,6 +40,7 @@
 4. `orpheus://` 是**未公开协议**，其真实形态是 `orpheus://<base64({"type","id","cmd":"play"})>`；客户端更新后可能失效（我们只在真机验证过 3.1.31）。
 5. Radio Browser 的某些域名在部分网络下不可用（例如 `api.` 返回 404、`all.` 连接被重置）——已内置镜像回退（`de1 → de2 → all → api → …`），可用 `DSHW_RADIO_BROWSER_BASE` / `DSHW_RADIO_BROWSER_MIRRORS` 覆盖。
 6. 导入单文件上限 **48MB**（= 64MB 请求体 ÷ base64 的 4/3 膨胀），超限在选文件时本地拦截。
+7. **单曲点播偶尔会被"正在播放的歌单队列"压过去**：如果客户端刚被整单播放接管，队列会继续推进，这时点一首单曲可能被队列里的下一首盖掉（再点一次即可）。这是客户端队列行为，不是插件的请求失败。
 
 ## 5. 与上游的关系 / 同步策略
 
@@ -93,4 +94,16 @@
 | 真实上游 | live 验证：真搜索 → 真点播 → SMTC 确认曲名变化 → 真暂停/继续 |
 | 发布前 | 泄露扫描（见第 7 节） |
 
-跑之前先确认 `node` 可用；各脚本默认从**脚本所在目录**推导插件目录，可用环境变量覆盖。
+跑之前先确认 `node` 可用；各脚本默认从**脚本所在目录的上一级**找 `dsh-whale-widget`，插件的实际位置可用环境变量或参数覆盖：
+
+```
+node music-harness.mjs | radio-harness.mjs | netease-harness.mjs   [插件目录]
+DSHW_PLUGIN_DIR=<插件目录> node music-harness.mjs
+node smoke-music.js            # 或 DSHW_WIDGET_JS=<...>/assets/whale-widget.js node smoke-music.js
+node block-identifier-check.mjs
+node leak-scan.mjs <目录> [--all] [--warn-ok] [--json]
+```
+
+脚本里**不含任何作者本机路径**（发布前用泄露扫描器逐目录确认过 CRITICAL 0 / WARN 0）；若插件不在默认位置又没有指定，脚本会明确报错并提示用哪个环境变量，不会静默走错。
+
+> 注：`netease-harness.mjs` 里那条"用 SMTC 确认曲名真的变了"的断言，会因为"歌单队列把单曲压过去"而偶发失败（实测 5 次里 2 次）。脚本现在会像真实用户那样最多重试 3 轮；单独跑同一条点播命令必定成功，所以这是测试的时序问题，不是功能问题。
