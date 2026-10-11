@@ -20252,6 +20252,29 @@ function dshwMediaApiExpose() {
         body: s.body || '',
       }
     }
+    // 控制接口（v793）：与只读接口对称，供同页面的桌宠/悬浮窗遥控当前音源。
+    // 只做四件事，且一律"作用于当前音源"：local/radio 走我们自己的播放器，netease 走 control 接口。
+    // 不抛错：未知命令、直播流没有上下首这类情况用 { ok:false, error } 表达，调用方自己决定怎么提示。
+    window.dshwMediaCtl = function (cmd) {
+      var c = String(cmd || '')
+      var out = { ok: false, did: '', source: (dshwNeteaseSource || 'local'), error: '' }
+      try {
+        if (c === 'toggle') {
+          if (dshwNeteaseSource === 'netease') { dshwNeteaseControl('toggle', false); out.did = 'toggle' }
+          else { dshwMusicTogglePlay(); out.did = 'toggle' }
+          out.ok = true
+        } else if (c === 'next' || c === 'prev') {
+          if (dshwNeteaseSource === 'netease') { dshwNeteaseControl(c, false); out.did = c; out.ok = true }
+          else if (dshwNeteaseSource === 'radio') { out.error = '电台是直播流，没有上一首/下一首' }
+          else { dshwMusicStep(c === 'next' ? 1 : -1); out.did = c; out.ok = true }
+        } else if (c === 'open-panel') {
+          dshwMusicOpenPanel(); out.did = 'open-panel'; out.ok = true
+        } else {
+          out.error = '未知命令（只支持 toggle / next / prev / open-panel）'
+        }
+      } catch (err) { out.error = String((err && err.message) || err) }
+      return out
+    }
     dshwMediaApiDone = true
   } catch (err) {}
 }
