@@ -20157,8 +20157,100 @@ dshwMusicClosePanel = function () {
 // 此时面板还没建 DOM，失败安静记着（面板一打开就会再同步一次，那次才写状态行）。
 try { dshwNeteaseFetch({ silent: true }, null) } catch (err) {}
 
+// —— ⑨ 桌宠桥（可选，v793）：同一页面里若装了 Live2D 桌宠插件（window.DSHPet），
+//    就把"我们这边正在放什么"同步给她：换表情 + 往她的信箱推一条简报（头顶冒信封）。
+//
+// 【为什么用轮询，而不是在各条播放路径里埋调用点】
+//   我们的播放状态分散在三条互不相干的路径上：本地音乐（dshwMusicCurKey）、
+//   电台（dshwRadioCur / dshwRadioIcy）、网易云（dshwNeteaseNow，由后端 SMTC 轮询写入）。
+//   暂停、切歌、切音源、关面板都会改状态 —— 埋调用点要改多处且容易漏。
+//   每 2 秒取一次"当前播放快照"再对比，只需一处代码，也完全不侵入既有逻辑。
+//
+// 【她不在时的开销】每 2 秒读一次 window.DSHPet（一次属性访问），不做其它任何工作。
+//   她晚于我们加载也没关系：第一次读到就把当前状态播报出去（lastKey 初始为空）。
+//   调试开关：window.dshwPetBridge = false 可临时关掉本桥（不影响挂件本身）。
+var dshwPetTimer = null
+var dshwPetLastKey = ''
+
+function dshwPetApi() {
+  try {
+    var p = (typeof window !== 'undefined') ? window.DSHPet : null
+    return (p && typeof p === 'object') ? p : null
+  } catch (err) { return null }
+}
+
+function dshwPetSnapshot() {
+  var out = { key: '', body: '', mood: '' }
+  try {
+    var audio = dshwMusicAudio
+    var playing = !!(audio && !audio.paused && !audio.ended)
+    if (dshwNeteaseSource === 'radio') {
+      var st = dshwRadioCur
+      if (!st) return out
+      var rn = dshwRadioNameOf(st) || '在线电台'
+      out.key = 'radio:' + rn + '|' + (playing ? '1' : '0')
+      out.mood = playing ? 'listening' : 'sleepy'
+      out.body = (playing ? '正在收听：' : '已暂停：') + rn
+        + ((playing && dshwRadioIcy) ? '\n正在播：' + dshwRadioIcy : '')
+        + '\n音源：在线电台'
+      return out
+    }
+    if (dshwNeteaseSource === 'netease') {
+      var np = dshwNeteaseNow
+      if (!np || !np.title) return out
+      var nt = String(np.title)
+      var na = np.artist ? String(np.artist) : ''
+      var ns = dshwNeteaseNowStatus() || ''
+      out.key = 'netease:' + nt + '|' + ns
+      out.mood = (ns === 'Playing') ? 'happy' : 'sleepy'
+      out.body = (ns === 'Playing' ? '正在播放：' : '已暂停：') + nt + (na ? ' — ' + na : '')
+        + '\n音源：网易云（' + (ns || '未知') + '）'
+      return out
+    }
+    if (!dshwMusicCurKey) return out
+    var tr = null
+    for (var i = 0; i < dshwMusicTracks.length; i++) {
+      if (dshwMusicKeyOf(dshwMusicTracks[i]) === dshwMusicCurKey) { tr = dshwMusicTracks[i]; break }
+    }
+    if (!tr) return out
+    out.key = 'local:' + dshwMusicCurKey + '|' + (playing ? '1' : '0')
+    out.mood = playing ? 'happy' : 'sleepy'
+    out.body = (playing ? '正在播放：' : '已暂停：') + dshwMusicTitleOf(tr) + '\n音源：本地音乐'
+  } catch (err) { out.key = '' }
+  return out
+}
+
+function dshwPetTick() {
+  try { if (window.dshwPetBridge === false) return } catch (err) {}
+  var api = dshwPetApi()
+  if (!api) return
+  var snap = dshwPetSnapshot()
+  if (!snap.key || snap.key === dshwPetLastKey) return
+  dshwPetLastKey = snap.key
+  try { if (snap.mood && typeof api.setUserFace === 'function') api.setUserFace(snap.mood) } catch (err) {}
+  try {
+    if (snap.body && typeof api.report === 'function') {
+      api.report('🐋 挂件 · ' + (snap.key.slice(-2) === '|1' ? '正在播放' : '已暂停'), snap.body)
+    }
+  } catch (err) {}
+}
+
+// 面板一打开就主动对一次（覆盖"她加载得比快照变化晚"的边角）；她的信箱对同标题同内容会去重。
+var dshwPetOrigOpenPanel = dshwMusicOpenPanel
+dshwMusicOpenPanel = function () {
+  var r = dshwPetOrigOpenPanel.apply(this, arguments)
+  try { dshwPetLastKey = ''; dshwPetTick() } catch (err) {}
+  return r
+}
+
+// 只在主界面启动定时器（本函数位于 dshwInit 内，非主界面根本不会执行到这里）
+if (!dshwPetTimer) dshwPetTimer = setInterval(dshwPetTick, 2000)
+
 // 启动时读一次后端设置：刷新页面后按 settings.pressMode 恢复开关（读不到就沿用默认"开"）。
 // 此时面板还没建 DOM，失败只记在状态字符串里，不会打扰用户。
+// ⚠️ 这两行必须是追加块的**最后**一条语句：运行时冒烟测试（smoke-music.js）以它作为
+//    "块尾标记"来切出要执行的代码；把新代码写在这之后会被静默漏测（该脚本已加守卫，
+//    一旦标记之后还有代码就直接报错，而不是悄悄少测）。
 try { dshwMusicFetch(null) } catch (err) {}
 }
 // 主界面检测通过（或稍后由 MutationObserver 检测到）后执行挂件初始化；非主界面不启动
