@@ -20180,18 +20180,22 @@ function dshwPetApi() {
 }
 
 function dshwPetSnapshot() {
-  var out = { key: '', body: '', mood: '' }
+  var out = { key: '', body: '', mood: '', source: '', title: '', artist: '', detail: '', playing: false }
   try {
     var audio = dshwMusicAudio
     var playing = !!(audio && !audio.paused && !audio.ended)
+    out.playing = playing
     if (dshwNeteaseSource === 'radio') {
       var st = dshwRadioCur
       if (!st) return out
       var rn = dshwRadioNameOf(st) || '在线电台'
+      out.source = 'radio'
+      out.title = rn
+      out.detail = (playing && dshwRadioIcy) ? String(dshwRadioIcy) : ''
       out.key = 'radio:' + rn + '|' + (playing ? '1' : '0')
       out.mood = playing ? 'listening' : 'sleepy'
       out.body = (playing ? '正在收听：' : '已暂停：') + rn
-        + ((playing && dshwRadioIcy) ? '\n正在播：' + dshwRadioIcy : '')
+        + (out.detail ? '\n正在播：' + out.detail : '')
         + '\n音源：在线电台'
       return out
     }
@@ -20201,6 +20205,10 @@ function dshwPetSnapshot() {
       var nt = String(np.title)
       var na = np.artist ? String(np.artist) : ''
       var ns = dshwNeteaseNowStatus() || ''
+      out.source = 'netease'
+      out.title = nt
+      out.artist = na
+      out.detail = ns
       out.key = 'netease:' + nt + '|' + ns
       out.mood = (ns === 'Playing') ? 'happy' : 'sleepy'
       out.body = (ns === 'Playing' ? '正在播放：' : '已暂停：') + nt + (na ? ' — ' + na : '')
@@ -20213,14 +20221,46 @@ function dshwPetSnapshot() {
       if (dshwMusicKeyOf(dshwMusicTracks[i]) === dshwMusicCurKey) { tr = dshwMusicTracks[i]; break }
     }
     if (!tr) return out
+    out.source = 'local'
+    out.title = dshwMusicTitleOf(tr)
     out.key = 'local:' + dshwMusicCurKey + '|' + (playing ? '1' : '0')
     out.mood = playing ? 'happy' : 'sleepy'
-    out.body = (playing ? '正在播放：' : '已暂停：') + dshwMusicTitleOf(tr) + '\n音源：本地音乐'
+    out.body = (playing ? '正在播放：' : '已暂停：') + out.title + '\n音源：本地音乐'
   } catch (err) { out.key = '' }
   return out
 }
 
+// —— 只读接口（v793）：把"当前播放快照"暴露给同一页面里的其它插件（例如桌宠 dsh-whale-song）。
+//    【为什么要有它】依赖方向应当是"宠物读挂件状态"，而不是"挂件知道宠物"：
+//    把状态公开成只读函数后，谁想接（桌宠、悬浮窗、别的工具）都能接，挂件不需要认识它们。
+//    只读：不修改任何状态、不触发播放、无副作用；消费者必须容忍它不存在（没装挂件时）。
+//    返回 {ok, source, title, artist, detail, playing, body}；查不到"当前在放什么"时 ok=false。
+var dshwMediaApiDone = false
+function dshwMediaApiExpose() {
+  if (dshwMediaApiDone) return
+  try {
+    if (typeof window === 'undefined') return
+    window.dshwMediaNow = function () {
+      var s = dshwPetSnapshot()
+      return {
+        ok: !!s.key,
+        source: s.source || '',
+        title: s.title || '',
+        artist: s.artist || '',
+        detail: s.detail || '',
+        playing: !!s.playing,
+        body: s.body || '',
+      }
+    }
+    dshwMediaApiDone = true
+  } catch (err) {}
+}
+// 浏览器里 window 必然存在，所以加载时就挂上；测试环境（Node）里 window 可能是后造的，
+// 因此每次 tick 再兜一次（挂了就不再重复，成本是一次布尔判断）。
+dshwMediaApiExpose()
+
 function dshwPetTick() {
+  dshwMediaApiExpose()
   try { if (window.dshwPetBridge === false) return } catch (err) {}
   var api = dshwPetApi()
   if (!api) return
